@@ -6,6 +6,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
+import 'package:image/image.dart' as img;
 
 void main() {
   runApp(const MyApp());
@@ -72,19 +73,17 @@ class StartScreenState extends State<StartScreen> {
         // Handle potential errors like invalid image path
         try {
           final bytes = await File(image!.path).readAsBytes();
-          doc.addPage(pw.Page(
-            pageFormat: PdfPageFormat.a4,
-            build: (pw.Context context) => pw.FittedBox(
-              fit: pw.BoxFit.fill,
-              child: pw.Padding(
-                  padding: pw.EdgeInsets.all(0),
-                  child: pw.Image(pw.MemoryImage(bytes))),
-            ),
-          ));
+          final img.Image? imgSrc = img.decodeImage(bytes);
+          if (imgSrc != null) {
+            final pageFormat = PdfPageFormat(
+                imgSrc.width.toDouble(), imgSrc.height.toDouble());
+            doc.addPage(pw.Page(
+              pageFormat: pageFormat,
+              build: (pw.Context context) => pw.Image(pw.MemoryImage(bytes)),
+            ));
+          }
         } catch (error) {
           print('Error processing image ${image!.path}: $error');
-          // Display an error message to the user
-          // (e.g., using Snackbar or AlertDialog)
         }
       }
 
@@ -148,7 +147,7 @@ class StartScreenState extends State<StartScreen> {
                   _selectedImages.isNotEmpty && !isloading2
                       ? SingleChildScrollView(
                           child: SizedBox(
-                            height: MediaQuery.of(context).size.height * 0.6,
+                            height: MediaQuery.of(context).size.height * 0.5,
                             child: GridView.builder(
                               shrinkWrap: true,
                               gridDelegate:
@@ -159,8 +158,16 @@ class StartScreenState extends State<StartScreen> {
                               ),
                               itemCount: _selectedImages.length,
                               itemBuilder: (context, index) {
-                                return Image.file(
-                                    File(_selectedImages[index]!.path));
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Colors.blue,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: Image.file(
+                                      File(_selectedImages[index]!.path)),
+                                );
                               },
                             ),
                           ),
@@ -185,24 +192,20 @@ class StartScreenState extends State<StartScreen> {
                   foregroundColor: MaterialStateProperty.all(Colors.white),
                 ),
                 onPressed: () {
-                  setState(() {
-                    isloading = true;
-                  });
-                  print('Convert to PDF button pressed.');
-                  convertopdf().then((pdfPath) {
-                    // Navigator.push(
-                    //   context,
-                    //   MaterialPageRoute(
-                    //     builder: (context) => PdfViewerPage(pdfPath: pdfPath),
-                    //   ),
-                    // );
+                  if (_selectedImages.isNotEmpty)
                     setState(() {
-                      isloading = false;
-                      // clear list
-                      _selectedImages = [];
+                      isloading = true;
                     });
-                    OpenFilex.open(pdfPath);
-                  });
+                  print('Convert to PDF button pressed.');
+                  if (_selectedImages.isNotEmpty)
+                    convertopdf().then((pdfPath) {
+                      setState(() {
+                        isloading = false;
+                        // clear list
+                        _selectedImages = [];
+                      });
+                      OpenFilex.open(pdfPath);
+                    });
                 },
                 child: const Text('Convert to PDF',
                     style: TextStyle(fontSize: 15)),
